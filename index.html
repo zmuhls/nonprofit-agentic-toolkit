@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Non-Profit AI Toolkit — stages 1–2 (live)</title>
+<style>
+  :root{
+    --ink:#1b2230; --ink2:#41506a; --bg:#f3f5f8; --card:#ffffff;
+    --line:#e6e9ef; --muted:#7a8699;
+    --navy:#15418a; --navy2:#1d4ed8; --amber:#b4530f; --green:#1f6b35;
+    --dark2:#0f172a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);
+    font:12.5px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;text-transform:lowercase}
+  .b,code,.nocase,input,textarea{text-transform:none}
+  /* selective title case: these titles render as authored; everything else stays lowercase */
+  .brand,.eyebrow,.lv,h1,.head2 h1,.orgchip{text-transform:none}
+  .app{display:grid;grid-template-columns:198px 1fr;min-height:100vh}
+  .hidden{display:none}
+
+  .side{background:var(--dark2);color:#aeb9cc;display:flex;flex-direction:column;padding:16px 0;gap:2px}
+  .brand{font-weight:650;font-size:12.5px;color:#fff;padding:2px 16px 16px;display:flex;gap:7px;align-items:center}
+  .orgchip{margin:0 11px 14px;padding:8px 10px;background:#1a2640;border-radius:8px;font-size:11.5px;color:#dbe4f3}
+  .orgchip small{display:block;color:#7385a6;font-size:9.5px}
+  .lv{display:flex;gap:9px;align-items:center;padding:8px 16px;font-size:12px;color:#9aa7bf;cursor:pointer}
+  .lv .ix{width:18px;height:18px;border-radius:50%;background:#23314c;color:#8fa6cb;font:700 9.5px/18px sans-serif;text-align:center;flex:none}
+  .lv:hover{color:#dbe4f3}
+  .lv.on{color:#fff;font-weight:600}.lv.on .ix{background:#15418a;color:#fff}
+  .lv.done .ix{background:#1f6b35;color:#fff}
+  .lv.lock{color:#5a6a86;cursor:not-allowed}.lv.lock .ix{opacity:.6}
+  .lv .lk{margin-left:auto;font-size:11.5px;opacity:.5}
+  .foot{margin-top:auto;padding:12px 16px 2px;font-size:10.5px;color:#6f819f;border-top:1px solid #1c2840}
+  .foot .live{color:#4ade80}
+
+  .main{display:flex;flex-direction:column;min-width:0;align-items:center}
+  .wrap{width:100%;max-width:680px;padding:46px 28px 80px}
+  .eyebrow{font:700 10px/1 sans-serif;letter-spacing:.05em;color:var(--amber);margin-bottom:9px}
+  h1{font-size:19px;line-height:1.3;margin:0 0 20px;font-weight:680;letter-spacing:-.01em}
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:6px}
+  input.org{width:100%;max-width:340px;border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:13px;color:var(--ink);background:var(--card)}
+  textarea{width:100%;min-height:138px;resize:vertical;border:1px solid var(--line);border-radius:11px;padding:12px 13px;font-size:13.5px;line-height:1.6;color:var(--ink);background:var(--card)}
+  input:focus,textarea:focus{outline:none;border-color:#9db6e3}
+  .row{display:flex;align-items:center;gap:12px;margin-top:13px;flex-wrap:wrap}
+  .btn{font:600 12.5px/1 inherit;background:#15418a;color:#fff;border:none;border-radius:9px;padding:10px 17px;cursor:pointer}
+  .btn:disabled{background:#c2ccda;cursor:not-allowed}
+  .btn.g{background:#1f6b35}
+  .hint{color:var(--muted);font-size:11.5px}
+
+  .chat{border:1px solid var(--line);border-radius:13px;background:var(--card);overflow:hidden;box-shadow:0 2px 10px rgba(16,24,40,.05)}
+  .stream{padding:16px;display:flex;flex-direction:column;gap:12px;min-height:110px;max-height:46vh;overflow-y:auto}
+  .m{display:flex;gap:9px;max-width:90%}
+  .m .b{padding:10px 13px;border-radius:12px;font-size:12.5px;line-height:1.5}
+  .m.u{align-self:flex-end;flex-direction:row-reverse}.m.u .b{background:#15418a;color:#fff;border-bottom-right-radius:4px}
+  .m.a .b{background:#f5f7fa;border:1px solid var(--line);border-bottom-left-radius:4px}
+  .m .av{width:23px;height:23px;border-radius:7px;flex:none;font:700 8.5px/23px sans-serif;text-align:center;color:#fff}
+  .m.u .av{background:#3a64a8}.m.a .av{background:#1f6b35}
+  .m .b b{font-weight:660}
+  .think i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#a9b6cc;margin-right:4px;animation:bl 1s infinite}
+  .think i:nth-child(2){animation-delay:.2s}.think i:nth-child(3){animation-delay:.4s}
+  @keyframes bl{0%,80%{opacity:.3}40%{opacity:1}}
+  .compose{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
+  .compose input{flex:1;border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--ink)}
+  .compose .btn{padding:9px 15px;font-size:12px}
+  .progress{font-size:11px;color:var(--muted);margin:8px 2px 0}
+
+  .route{margin-top:22px;border-top:1px solid var(--line);padding-top:18px}
+  .route .lead{font-size:11.5px;color:var(--muted);margin-bottom:11px}
+  .qt{font-size:13.5px;line-height:1.6}
+  .tag{display:inline-block;font:700 9.5px/1 sans-serif;color:#4a3f8c;background:#ece9f8;padding:3px 6px;border-radius:5px;margin:2px 3px 2px 0}
+
+  .head2{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+  .head2 h1{margin:0;font-size:17px}
+  .pulse{font:700 9.5px/1 sans-serif;color:#1f6b35;background:#e2f0e4;padding:4px 8px;border-radius:20px}
+  .carry{font-size:11.5px;color:var(--muted);margin:0 0 15px}
+  .steps{display:flex;gap:18px;margin-bottom:14px;flex-wrap:wrap}
+  .step{display:flex;gap:7px;align-items:center;font-size:11.5px;color:#9aa3b3}
+  .step.done{color:var(--green);font-weight:600}
+  .ck{width:15px;height:15px;border-radius:50%;border:2px solid #cfd6e2;flex:none}.step.done .ck{background:#1f6b35;border-color:#1f6b35}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .chip{background:#fff;border:1px solid var(--line);color:#2c3a55;border-radius:20px;padding:6px 12px;font-size:11.5px;cursor:pointer}
+  .chip:hover{border-color:#9db6e3;background:#f7faff}
+  .act{display:flex;gap:9px;align-items:center;margin-top:13px;flex-wrap:wrap}
+  .act .btn{padding:8px 14px;font-size:12px}
+  .tiny{margin-top:16px;font-size:11px;color:var(--muted)}
+  .tiny a{color:var(--navy2);cursor:pointer}
+  #svc{min-height:84px;font-size:12.5px;margin-top:9px}
+  .win{margin-top:15px;background:#eef7f0;border:1px solid #cfe6d6;border-radius:11px;padding:12px 14px;font-size:12.5px;color:#1a4a2b}
+  .err{margin-top:12px;background:#fdecec;border:1px solid #f3c3c3;color:#7a2020;border-radius:9px;padding:9px 12px;font-size:12.5px}
+
+  /* server-side access gate — opaque overlay shown until the code is verified */
+  .gate{position:fixed;inset:0;z-index:200;background:var(--dark2);display:flex;align-items:center;justify-content:center;padding:24px}
+  .gate .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:26px 24px;max-width:340px;width:100%;box-shadow:0 16px 50px rgba(0,0,0,.4)}
+  .gate .gbrand{font-weight:650;font-size:14px;color:var(--ink);margin-bottom:14px}
+  .gate .glead{font-size:12px;color:var(--muted);margin-bottom:12px}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px;color:var(--ink);background:var(--card);margin-bottom:11px}
+  .gate input:focus{outline:none;border-color:#9db6e3}
+  .gate .btn{width:100%;justify-content:center}
+  .gate .gerr{color:#a32626;font-size:11.5px;margin-top:10px;min-height:14px}
+</style>
+</head>
+<body>
+<div class="gate" id="gate">
+  <div class="card">
+    <div class="gbrand">🧰 Non-Profit AI Toolkit</div>
+    <div class="glead">enter your access code to continue.</div>
+    <input id="gatecode" type="password" placeholder="access code" autocomplete="off"
+           onkeydown="if(event.key==='Enter')unlock()" />
+    <button class="btn" id="gatebtn" onclick="unlock()">enter →</button>
+    <div class="gerr" id="gerr"></div>
+  </div>
+</div>
+<div class="app">
+  <aside class="side">
+    <div class="brand">🧰 Non-Profit AI Toolkit</div>
+    <div class="orgchip" id="orgchip">Your org<small>set it in Level 1</small></div>
+    <div class="lv on" id="lv-core" onclick="go('core')"><span class="ix">1</span> Core</div>
+    <div class="lv lock" id="lv-app" onclick="go('app')"><span class="ix">2</span> Application <span class="lk">🔒</span></div>
+    <div class="lv lock" id="lv-3"><span class="ix">3</span> Infobot &amp; RAG <span class="lk">🔒</span></div>
+    <div class="lv lock"><span class="ix">4</span> Fine-tuning <span class="lk">🔒</span></div>
+    <div class="lv lock"><span class="ix">5</span> Hosting <span class="lk">🔒</span></div>
+    <div class="lv lock"><span class="ix">6</span> Maintenance <span class="lk">🔒</span></div>
+    <div class="foot"><span class="live">●</span> glm-5.2 live · via ai gateway</div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ===== ROUND 1 · CORE (adaptive interview) ===== -->
+    <section class="wrap" id="core">
+      <div class="eyebrow">Level 1 · Core</div>
+      <h1>Start where you are.</h1>
+      <div class="field">
+        <label>your organization</label>
+        <input class="org" id="org" placeholder="e.g. your nonprofit's name" oninput="syncOrg()" />
+      </div>
+
+      <div id="fwbox">
+        <div class="field">
+          <label>in a few sentences — what do you want from ai, and what worries you?</label>
+          <textarea id="fw" placeholder="in your own words…"></textarea>
+        </div>
+        <div class="row"><button class="btn" id="fwbtn" onclick="begin()">begin →</button><span class="hint" id="fwhint">glm-5.2 will ask a few questions, each shaped by your last answer.</span></div>
+      </div>
+
+      <div id="intake" class="chat hidden">
+        <div class="stream" id="obstream"></div>
+        <div class="compose" id="obcompose"><input id="obmsg" placeholder="your answer…" onkeydown="if(event.key==='Enter')obSend()" /><button class="btn" id="obbtn" onclick="obSend()">send</button></div>
+      </div>
+      <div class="progress hidden" id="oprog"></div>
+
+      <div id="route" class="route hidden">
+        <div class="lead">based on everything you said, here's where to start:</div>
+        <div id="routebody"></div>
+        <div class="row"><button class="btn g" onclick="toApp()">continue to stage 2 →</button></div>
+      </div>
+      <div id="coreErr"></div>
+    </section>
+
+    <!-- ===== ROUND 2 · APPLICATION (inflected by round 1) ===== -->
+    <section class="wrap hidden" id="app">
+      <div class="eyebrow">Level 2 · Application</div>
+      <div class="head2"><h1 id="apptitle">Your Assistant</h1><span class="pulse">● live · glm-5.2</span></div>
+      <p class="carry">it carries what you told stage 1, and answers from your own service list.</p>
+      <div class="steps">
+        <span class="step" id="s1"><span class="ck"></span> ask a question</span>
+        <span class="step" id="s2"><span class="ck"></span> human-in-the-loop check</span>
+        <span class="step" id="s3"><span class="ck"></span> ready to share</span>
+      </div>
+
+      <div class="chat">
+        <div class="stream" id="stream"></div>
+        <div class="compose"><input id="msg" placeholder="ask anything — a service question, a draft, a translation…" onkeydown="if(event.key==='Enter')send()" /><button class="btn" id="sendbtn" onclick="send()">send</button></div>
+      </div>
+
+      <div class="chips">
+        <span class="chip" onclick="ins('Answer this client question: ')">answer a client question</span>
+        <span class="chip" onclick="ins('Draft a short, warm client email about: ')">draft an email</span>
+        <span class="chip" onclick="ins('Summarize this in plain language: ')">summarize a doc</span>
+        <span class="chip" onclick="ins('Translate to Spanish, plain and warm: ')">translate</span>
+        <span class="chip" onclick="ins('De-identify these notes (remove names, dates, case numbers): ')">de-identify notes</span>
+      </div>
+
+      <div class="act" id="act"></div>
+      <div id="win"></div>
+      <div class="tiny">
+        want grounded service answers? <a onclick="$('svcwrap').classList.toggle('hidden')">✎ paste what your org offers</a>
+        · <a onclick="fortuneExample()">use the fortune example</a>
+        <div id="svcwrap" class="hidden"><textarea id="svc" placeholder="paste a short list of your services / programs…" onchange="profile.org.services=this.value"></textarea></div>
+      </div>
+      <div id="appErr"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const profile = { org:{name:'', services:''}, context:'' };   // context = everything disclosed in round 1
+let accessCode = '';   // verified against /api/auth; sent as X-Access-Code on every call
+
+async function unlock(){
+  const c = $('gatecode').value.trim();
+  if(!c){ $('gerr').textContent='enter the code you were given.'; return; }
+  $('gatebtn').disabled=true; $('gerr').textContent='checking…';
+  try{
+    const r = await fetch('/api/auth',{method:'POST',headers:{'X-Access-Code':c}});
+    const j = await r.json();
+    if(j.ok){ accessCode=c; $('gate').style.display='none'; $('gatebtn').disabled=false; }
+    else { $('gerr').textContent='that code is not right.'; $('gatebtn').disabled=false; $('gatecode').select(); }
+  }catch(e){ $('gerr').textContent='could not reach the server.'; $('gatebtn').disabled=false; }
+}
+window.addEventListener('DOMContentLoaded',()=>$('gatecode').focus());
+
+function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function fmt(s){return esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\((→[^)]*)\)/g,'<span class="tag">$1</span>').replace(/\n/g,'<br>');}
+function orgName(){return profile.org.name.trim() || 'your org';}
+
+async function glm(mode, messages){
+  const r = await fetch('/api/chat',{method:'POST',
+    headers:{'Content-Type':'application/json','X-Access-Code':accessCode},
+    body:JSON.stringify({mode, messages, org:profile.org, context:profile.context})});
+  return r.json();
+}
+
+function syncOrg(){
+  profile.org.name = $('org').value;
+  $('orgchip').innerHTML = (orgName()) + '<small>'+(profile.org.name.trim()?'level 1':'set it in level 1')+'</small>';
+}
+function fortuneExample(){
+  $('org').value='Fortune Society'; syncOrg(); $('svcwrap').classList.remove('hidden');
+  $('svc').value='- Housing: Fortune Academy ("the Castle") and Castle Gardens — supportive and transitional housing in West Harlem.\n- Digital Equity Program: device access, digital-literacy workshops, 1:1 tutoring, Microsoft Certification courses, hands-on classes (drone, robotics, phone repair).\n- Reentry support across education, employment, health care, and policy advocacy; three sites (Long Island City service center; the Castle and Castle Gardens).';
+  profile.org.services=$('svc').value;
+}
+function go(v){
+  if(v==='app' && $('lv-app').classList.contains('lock')) return;
+  $('core').classList.toggle('hidden', v!=='core');
+  $('app').classList.toggle('hidden', v!=='app');
+  $('lv-core').classList.toggle('on', v==='core'); $('lv-app').classList.toggle('on', v==='app');
+  window.scrollTo(0,0);
+}
+function bub(stream, role, html){
+  const m=document.createElement('div'); m.className='m '+(role==='u'?'u':'a');
+  m.innerHTML='<span class="av">'+(role==='u'?'you':'ai')+'</span><div class="b">'+html+'</div>';
+  $(stream).appendChild(m); $(stream).scrollTop=$(stream).scrollHeight; return m;
+}
+
+/* ---- ROUND 1: adaptive interview — each answer shapes the next question ---- */
+let obhist=[], answered=0;
+async function begin(){
+  const t=$('fw').value.trim(); $('coreErr').innerHTML='';
+  if(t.length<25){ $('fwhint').textContent='a few real sentences works best.'; return; }
+  profile.context = (profile.org.name?('org: '+profile.org.name+'. '):'') + t;
+  $('fwbox').classList.add('hidden'); $('intake').classList.remove('hidden'); $('oprog').classList.remove('hidden');
+  bub('obstream','u', esc(t));
+  obhist=[{role:'user', content:profile.context}];
+  await obAsk();
+}
+async function obSend(){
+  const v=$('obmsg').value.trim(); if(!v) return;
+  bub('obstream','u', esc(v)); $('obmsg').value='';
+  obhist.push({role:'user',content:v}); profile.context += '\n— ' + v; answered++;
+  await obAsk();
+}
+async function obAsk(){
+  $('obbtn').disabled=true; $('oprog').textContent='glm-5.2 is reading what you said…';
+  const th=bub('obstream','a','<span class="think"><i></i><i></i><i></i></span>');
+  const res=await glm('onboard', obhist);
+  $('obbtn').disabled=false;
+  if(!res.content){ th.querySelector('.b').innerHTML='<span style="color:#a32626">'+esc(res.error||'no response')+'</span>'; $('oprog').textContent=''; return; }
+  obhist.push({role:'assistant',content:res.content});
+  if(/→\s*stage/i.test(res.content)){          // routing reached → end round 1
+    th.remove(); $('obcompose').classList.add('hidden'); $('oprog').classList.add('hidden');
+    $('routebody').innerHTML='<div class="qt">'+fmt(res.content)+'</div>'; $('route').classList.remove('hidden');
+    $('route').scrollIntoView({behavior:'smooth',block:'nearest'});
+    $('lv-app').classList.remove('lock'); $('lv-app').querySelector('.lk').textContent=''; $('lv-core').classList.add('done');
+    estimateSequence();                         // project the org's full path + the broader set
+  } else {                                      // another shaped question
+    th.querySelector('.b').innerHTML=fmt(res.content);
+    $('oprog').textContent='question '+(answered+1)+' — shaped by what you just told it. answer to go deeper.';
+    $('obmsg').focus();
+  }
+}
+async function estimateSequence(){
+  const box=document.createElement('div');
+  box.style.cssText='margin-top:16px;border-top:1px dashed #e6e9ef;padding-top:14px';
+  box.innerHTML='<div style="font-size:12px;color:#7a8699">estimating your build sequence and the broader set…</div>';
+  $('routebody').appendChild(box);
+  const msgs=obhist.concat([{role:'user',content:'Now project my build sequence and the broader set of sequences, exactly as instructed.'}]);
+  const res=await glm('estimate', msgs);
+  box.innerHTML = res.content
+    ? '<div class="qt">'+fmt(res.content)+'</div>'
+    : '<div style="font-size:12px;color:#a32626">'+esc(res.error||'could not estimate')+'</div>';
+  $('route').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* ---- ROUND 2: live assistant, inflected by round 1 ---- */
+let hist=[];
+function toApp(){
+  if($('svc')) profile.org.services=$('svc').value;
+  $('apptitle').textContent=orgName()+' · Assistant'; go('app');
+  if(!hist.length) openStage2();
+}
+async function openStage2(){
+  const th=bub('stream','a','<span class="think"><i></i><i></i><i></i></span>');
+  const kick='Greet me in one short sentence that reflects what I told you in onboarding, then suggest exactly two specific things you could help me with right now. Under 4 lines.';
+  const res=await glm('assistant',[{role:'user',content:kick}]);
+  if(res.content){ th.querySelector('.b').innerHTML=fmt(res.content); hist=[{role:'user',content:kick},{role:'assistant',content:res.content}]; }
+  else th.querySelector('.b').innerHTML='hi — ask a service question, a draft, or a translation to start.';
+}
+function ins(t){ $('msg').value=t+$('msg').value; $('msg').focus(); }
+async function send(){
+  const v=$('msg').value.trim(); if(!v) return; $('appErr').innerHTML='';
+  if($('svc')) profile.org.services=$('svc').value;
+  bub('stream','u', esc(v)); $('msg').value=''; hist.push({role:'user',content:v});
+  $('sendbtn').disabled=true; const th=bub('stream','a','<span class="think"><i></i><i></i><i></i></span>');
+  const res=await glm('assistant', hist); $('sendbtn').disabled=false;
+  if(!res.content){ th.querySelector('.b').innerHTML='<span style="color:#a32626">'+esc(res.error||'no response')+'</span>'; return; }
+  th.querySelector('.b').innerHTML=fmt(res.content); hist.push({role:'assistant',content:res.content}); step1();
+}
+function step1(){ if($('s1').classList.contains('done'))return; $('s1').classList.add('done');
+  $('act').innerHTML='<button class="btn" onclick="verify()">✓ I checked this with the team</button> <span class="hint">the human-in-the-loop step clears the level.</span>'; }
+function verify(){ $('s2').classList.add('done'); $('act').innerHTML='<button class="btn g" onclick="finalize()">mark ready to share →</button>'; }
+function finalize(){ $('s3').classList.add('done'); $('act').innerHTML='';
+  $('win').innerHTML='<div class="win"><b>level 2 complete.</b> stage 3 (infobot) is unlocked — and it inherits the org and the context you built in stage 1.</div>';
+  $('lv-app').classList.add('done'); const n3=$('lv-3'); n3.classList.remove('lock'); n3.querySelector('.lk').textContent=''; }
+</script>
+</body>
+</html>

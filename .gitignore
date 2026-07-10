@@ -1,0 +1,11 @@
+# python bytecode
+__pycache__/
+*.py[cod]
+
+# never commit secrets or local env
+.env
+*.env
+.env.*
+
+# macOS
+.DS_Store
