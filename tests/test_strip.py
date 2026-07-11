@@ -36,6 +36,25 @@ class StripReasoning(unittest.TestCase):
     def test_answer_before_and_after(self):
         self.assertEqual(strip_reasoning("Answer one.<think>mid</think> Answer two."), "Answer one. Answer two.")
 
+    def test_orphan_close_prefix(self):
+        # the real GLM leak: reasoning prose, a bare </think> (no opening), then the answer
+        leaked = ("User wants a plan. Let me think about the order. Actually, RAG first. "
+                  "Let me finalize.</think>**Your sequence**\n\n1. Core: done.")
+        self.assertEqual(strip_reasoning(leaked), "**Your sequence**\n\n1. Core: done.")
+
+    def test_orphan_close_prefix_thinking_variant(self):
+        self.assertEqual(strip_reasoning("some reasoning here</thinking>The answer."), "The answer.")
+
+    def test_orphan_close_prefix_kimi(self):
+        self.assertEqual(strip_reasoning("weighing options" + THINK_CLOSE + "Final."), "Final.")
+
+    def test_reasoning_mentioning_stages_is_fully_removed(self):
+        # the trace can itself contain draft answer text; nothing before </think> may survive
+        leaked = "Draft: **Core** then **Application**. Wait, reconsider.</think>Real answer only."
+        out = strip_reasoning(leaked)
+        self.assertEqual(out, "Real answer only.")
+        self.assertNotIn("reconsider", out)
+
     def test_orphan_open_tag_keeps_visible_text(self):
         # unterminated block: strip the stray tag but never delete the visible answer
         self.assertEqual(strip_reasoning("<think>leaked with no close"), "leaked with no close")

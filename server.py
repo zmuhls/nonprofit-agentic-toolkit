@@ -21,31 +21,45 @@ HERE  = pathlib.Path(__file__).parent
 # via the ACCESS_CODE env var; set it to "" to disable the gate entirely.
 ACCESS_CODE = os.environ.get("ACCESS_CODE", "AI4Wut").strip()
 
-# GLM-5.2 (and other hybrid reasoning models) can leak their chain-of-thought
-# inline in message.content wrapped in <think>…</think> even when the request sets
-# think:false — the same class of behavior Ollama documents for GPT-OSS, whose
-# trace "cannot be fully disabled". Ollama's contract puts reasoning in
-# message.thinking (which we never read); this strips the fallback case where the
-# trace bleeds into content so it never reaches the UI. Matched delimiters:
-# <think>/<thinking> (GLM, DeepSeek-R1) and ◁think▷ (Kimi).
-_REASONING_BLOCK = re.compile(
+# GLM-5.2 is a hybrid reasoning model. Even with think:false it INTERMITTENTLY
+# leaks its chain-of-thought into message.content — verified live against Ollama
+# Cloud — and typically as a PREFIX with only a CLOSING tag and no opening one,
+# e.g. "…long reasoning… Let me finalize.</think>**the real answer**". Ollama's
+# contract puts reasoning in message.thinking (empty in the leak case), which we
+# never read; strip_reasoning removes the trace from content so it never reaches
+# the UI. Delimiters seen: <think>/<thinking> (GLM, DeepSeek-R1) and ◁think▷ (Kimi).
+_REASONING_BLOCK = re.compile(         # well-formed <think>…</think> block (both tags)
     r"<think\b[^>]*>.*?</think\s*>"
     r"|<thinking\b[^>]*>.*?</thinking\s*>"
     r"|◁think▷.*?◁/think▷",
     re.IGNORECASE | re.DOTALL,
 )
-_ORPHAN_TAGS = re.compile(
-    r"</?think\b[^>]*>|</?thinking\b[^>]*>|◁/?think▷",
+_CLOSE_TAG = re.compile(               # a closing reasoning tag on its own (the common leak)
+    r"</think\s*>|</thinking\s*>|◁/think▷",
+    re.IGNORECASE,
+)
+_ORPHAN_OPEN = re.compile(             # a stray opening tag left by a truncated trace
+    r"<think\b[^>]*>|<thinking\b[^>]*>|◁think▷",
     re.IGNORECASE,
 )
 
 
 def strip_reasoning(text):
-    """Remove any leaked reasoning trace from model content; a no-op on clean text."""
+    """Remove any leaked reasoning trace from model content; a no-op on clean text.
+
+    Handles a well-formed <think>…</think> block AND the common GLM leak where only
+    the closing tag survives and the reasoning is the whole prefix before it. When a
+    closing tag is present, everything up to and including the last one is dropped, so
+    the trace can never survive as visible prose. A leak with no tag at all is not
+    detectable and is left untouched.
+    """
     if not text:
         return text
-    cleaned = _REASONING_BLOCK.sub("", text)   # well-formed <think>…</think> blocks
-    cleaned = _ORPHAN_TAGS.sub("", cleaned)    # stray unmatched tags, never the visible text
+    cleaned = _REASONING_BLOCK.sub("", text)          # paired <think>…</think> blocks
+    closes = list(_CLOSE_TAG.finditer(cleaned))       # orphan closing tag → reasoning is the prefix
+    if closes:
+        cleaned = cleaned[closes[-1].end():]          # drop everything up to & incl. the last close
+    cleaned = _ORPHAN_OPEN.sub("", cleaned)           # stray unmatched opening tag
     return cleaned.strip()
 
 # Stage 1 · Core — an ADAPTIVE interview: each disclosure shapes the next question
