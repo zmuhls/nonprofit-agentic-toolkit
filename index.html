@@ -200,13 +200,16 @@
 const $ = id => document.getElementById(id);
 const profile = { org:{name:'', services:''}, context:'' };   // context = everything disclosed in round 1
 let accessCode = '';   // verified against /api/auth; sent as X-Access-Code on every call
+const API_BASE = window.location.hostname === 'zmuhls.github.io'
+  ? 'https://toolkit-api-production-535d.up.railway.app'
+  : '';
 
 async function unlock(){
   const c = $('gatecode').value.trim();
   if(!c){ $('gerr').textContent='enter the code you were given.'; return; }
   $('gatebtn').disabled=true; $('gerr').textContent='checking…';
   try{
-    const r = await fetch('/api/auth',{method:'POST',headers:{'X-Access-Code':c}});
+    const r = await fetch(API_BASE + '/api/auth',{method:'POST',headers:{'X-Access-Code':c}});
     const j = await r.json();
     if(j.ok){ accessCode=c; $('gate').style.display='none'; $('gatebtn').disabled=false; }
     else { $('gerr').textContent='that code is not right.'; $('gatebtn').disabled=false; $('gatecode').select(); }
@@ -219,7 +222,7 @@ function fmt(s){return esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\((
 function orgName(){return profile.org.name.trim() || 'your org';}
 
 async function glm(mode, messages){
-  const r = await fetch('/api/chat',{method:'POST',
+  const r = await fetch(API_BASE + '/api/chat',{method:'POST',
     headers:{'Content-Type':'application/json','X-Access-Code':accessCode},
     body:JSON.stringify({mode, messages, org:profile.org, context:profile.context})});
   return r.json();

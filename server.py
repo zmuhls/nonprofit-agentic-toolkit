@@ -15,6 +15,12 @@ import http.server, socketserver, json, os, pathlib, re, urllib.request, urllib.
 KEY   = os.environ.get("OLLAMA_API_KEY", "").strip()
 MODEL = os.environ.get("TOOLKIT_MODEL", "glm-5.2")
 HERE  = pathlib.Path(__file__).parent
+HOST  = os.environ.get("HOST", "0.0.0.0")
+
+# The hosted frontend lives on GitHub Pages while the API runs on Railway.
+# Keep this to one exact browser origin in production. Local and Railway-hosted
+# copies remain same-origin and do not need CORS headers.
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "").rstrip("/")
 
 # Shared access code gating the app. Enforced server-side on /api/chat so the
 # key can never be used by anyone who merely reaches the endpoint. Overridable
@@ -143,6 +149,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return True
         return (self.headers.get("X-Access-Code") or "").strip() == ACCESS_CODE
 
+    def end_headers(self):
+        origin = (self.headers.get("Origin") or "").rstrip("/")
+        if ALLOWED_ORIGIN and origin == ALLOWED_ORIGIN:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Access-Code")
+            self.send_header("Vary", "Origin")
+        super().end_headers()
+
+    def do_OPTIONS(self):
+        origin = (self.headers.get("Origin") or "").rstrip("/")
+        if not ALLOWED_ORIGIN or origin != ALLOWED_ORIGIN:
+            self.send_error(403); return
+        self.send_response(204)
+        self.end_headers()
+
+    def do_GET(self):
+        if self.path == "/health":
+            self._json(200, {"status": "ok"}); return
+        super().do_GET()
+
     def do_POST(self):
         if self.path == "/api/auth":              # frontend gate check
             self._json(200, {"ok": self._authorized()}); return
@@ -201,7 +228,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8765"))
     print("non-profit ai toolkit · prototype")
-    print("  http://127.0.0.1:%d   model=%s   key=%s   gate=%s"
-          % (port, MODEL, "set" if KEY else "MISSING", "on" if ACCESS_CODE else "off"))
-    socketserver.TCPServer.allow_reuse_address = True
-    socketserver.TCPServer(("127.0.0.1", port), Handler).serve_forever()
+    print("  http://%s:%d   model=%s   key=%s   gate=%s"
+          % (HOST, port, MODEL, "set" if KEY else "MISSING", "on" if ACCESS_CODE else "off"))
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
+    socketserver.ThreadingTCPServer.daemon_threads = True
+    socketserver.ThreadingTCPServer((HOST, port), Handler).serve_forever()

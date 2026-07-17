@@ -3,7 +3,7 @@
 
 Replays scripted user runs against the LIVE app — the same `/api/chat` calls the
 browser makes — so each persona exercises the full sequence a real user would walk
-through in the browser at http://127.0.0.1:8765:
+through in the browser at the URL in TOOLKIT_BASE_URL (or http://127.0.0.1:8765):
 
     free-write -> adaptive interview -> routing -> estimate -> assistant + tasks
 
@@ -18,7 +18,7 @@ Usage (start the server first, with OLLAMA_API_KEY set):
 """
 import argparse, json, os, sys, urllib.request
 
-BASE = "http://127.0.0.1:8765"
+BASE = os.environ.get("TOOLKIT_BASE_URL", "http://127.0.0.1:8765").rstrip("/")
 # match the server's default gate; override with ACCESS_CODE if the server does too
 ACCESS_CODE = os.environ.get("ACCESS_CODE", "AI4Wut")
 
