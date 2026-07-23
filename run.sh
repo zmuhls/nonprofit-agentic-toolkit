@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# run.sh — launch the Non-Profit AI Toolkit prototype (stages 1–2).
+# run.sh — launch the Non-Profit AI Toolkit prototype (entry screen + Red Line Test).
 #
 #   ./run.sh           start the server and open the app in your browser
 #   ./run.sh test      start the server, run the simulation harness, then stop

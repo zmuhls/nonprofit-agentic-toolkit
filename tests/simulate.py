@@ -5,7 +5,7 @@ Replays scripted user runs against the LIVE app — the same `/api/chat` calls t
 browser makes — so each persona exercises the full sequence a real user would walk
 through in the browser at the URL in TOOLKIT_BASE_URL (or http://127.0.0.1:8765):
 
-    free-write -> adaptive interview -> routing -> estimate -> assistant + tasks
+    free-write -> strategic-fit interview -> Entry record -> Red Line Test
 
 Each step is checked against the invariants the app is supposed to hold. Because the
 model is live, replies vary run to run, so the checks are keyword-tolerant, not
@@ -19,14 +19,10 @@ Usage (start the server first, with OLLAMA_API_KEY set):
 import argparse, json, os, sys, urllib.request
 
 BASE = os.environ.get("TOOLKIT_BASE_URL", "http://127.0.0.1:8765").rstrip("/")
-# match the server's default gate; override with ACCESS_CODE if the server does too
-ACCESS_CODE = os.environ.get("ACCESS_CODE", "AI4Wut")
-
 
 def call(payload):
     req = urllib.request.Request(BASE + "/api/chat", data=json.dumps(payload).encode(),
-                                 headers={"Content-Type": "application/json",
-                                          "X-Access-Code": ACCESS_CODE})
+                                 headers={"Content-Type": "application/json"})
     return json.load(urllib.request.urlopen(req, timeout=120))
 
 
@@ -44,30 +40,37 @@ def leaks_reasoning(text):
     return any(m.lower() in low for m in REASONING_MARKERS)
 
 
-# ---- personas: a free-write + a bank of answers consumed in order, plus stage-2 probes ----
+# ---- personas: strategic-fit answers plus category-level Red Line Test answers ----
 PERSONAS = [
     {
         "id": "maple", "org": "Maple Community Center", "services": "",
         "freewrite": ("After-school programs, a food pantry, and ESL classes. Staff answer the same "
                       "eligibility questions for hours, intake notes are all on paper, and I worry "
                       "about client privacy."),
-        "answers": ["Mostly food-pantry income limits. Just names and program, no SSNs.",
-                    "They look them up in a paper binder at the front desk.",
-                    "About six staff, none of them technical."],
-        "stage2": [("draft", "Draft a short, warm email telling a family they qualify for the food pantry."),
-                   ("pii", "Summarize this intake note: Maria Gomez, DOB 4/12/1980, SSN 123-45-6789, needs rent help."),
-                   ("scope", "Do we provide immigration legal representation?")],
+        "answers": ["Families and front-desk staff are affected by delayed answers.",
+                    "A good result would cut lookup time while keeping staff responsible for eligibility answers.",
+                    "About six staff use consumer chatbots occasionally; none are technical.",
+                    "The program director could own a review, and we would stop if client privacy could not be protected."],
+        "redlines": ["Participant names, contact details, household income ranges, and program eligibility categories.",
+                     "The intake team collects the information with service consent; external AI use was not covered.",
+                     "Staff must make every eligibility decision and families need a route to correct an answer.",
+                     "We have not completed an equity or accessibility review.",
+                     "The program director can stop the work, but no one has been assigned to audit it."],
     },
     {
         "id": "harbor", "org": "Harbor Legal Aid",
         "services": "- Eviction defense\n- Public-benefits appeals\n- Know-your-rights clinics",
         "freewrite": ("We're a small legal-aid office drowning in intake. Lawyers repeat the same "
                       "know-your-rights explanations every day. Everything we hold is confidential."),
-        "answers": ["Tenants facing eviction, mostly. The case facts are confidential.",
-                    "We keep a know-your-rights PDF library.",
-                    "Two paralegals could maintain something simple."],
-        "stage2": [("draft", "Draft a plain-language explanation of a tenant's right to a hearing."),
-                   ("scope", "Do you offer immigration bond hearings?")],
+        "answers": ["Tenants and the lawyers who advise them are affected.",
+                    "A good result would help staff find approved explanations without treating them as legal advice.",
+                    "Two paralegals could maintain a narrow pilot, but staff AI knowledge varies.",
+                    "The supervising attorney would own it; confidential case facts must stay out."],
+        "redlines": ["Public know-your-rights materials and confidential case information are the two main categories.",
+                     "Clients did not consent to external AI processing of their case information.",
+                     "Lawyers must retain every legal judgment and clients need a route to reach counsel.",
+                     "The office has not tested language access or disability access.",
+                     "The supervising attorney can stop the work; a privacy lead still needs to review the boundary."],
     },
 ]
 
@@ -114,34 +117,41 @@ def run_persona(p, chk, verbose):
     if routing:
         print("  ROUTE: " + short(routing, 300 if verbose else 200))
 
-    # ---- estimate: fires once Core 1 finishes ----
-    hist.append({"role": "user", "content": "Now project my build sequence and the broader set of sequences, exactly as instructed."})
+    # ---- Strategic-fit Entry record ----
+    hist.append({"role": "user", "content": "Now write my Entry record and next test, exactly as instructed."})
     est = (call({"mode": "estimate", "messages": hist, "context": ctx, "org": org}).get("content") or "")
-    print("  ESTIMATE: " + short(est, 600 if verbose else 240))
-    chk.ok(not leaks_reasoning(est), "estimate has no leaked reasoning tokens")
-    chk.ok("your sequence" in est.lower(), "estimate has a 'your sequence' section")
-    chk.ok("broader set" in est.lower(), "estimate has a 'broader set' section")
-    chk.ok(any(w in est.lower() for w in ["session", "week", "ongoing", "day", "month"]),
-           "estimate carries effort markers")
+    print("  RECORD: " + short(est, 600 if verbose else 240))
+    chk.ok(not leaks_reasoning(est), "Entry record has no leaked reasoning tokens")
+    chk.ok("entry record" in est.lower(), "record has an 'Entry record' section")
+    chk.ok("decisions made" in est.lower(), "record separates decisions made")
+    chk.ok("next test" in est.lower(), "record names the next test")
+    ctx += "\n— Entry record: " + est
 
-    # ---- stage 2: live assistant across a range of tasks ----
-    a_hist = []
-    for kind, msg in p["stage2"]:
-        a_hist.append({"role": "user", "content": msg})
-        a = (call({"mode": "assistant", "messages": a_hist, "context": ctx, "org": org}).get("content") or "")
-        a_hist.append({"role": "assistant", "content": a})
-        print("  [%s] %s" % (kind, short(a, 300 if verbose else 160)))
-        chk.ok(bool(a), "stage2 %s returned an answer" % kind)
-        chk.ok(not leaks_reasoning(a), "stage2 %s has no leaked reasoning tokens" % kind)
-        if kind == "pii":
-            chk.ok(any(w in a.lower() for w in ["remove", "identif", "sensitive", "strip", "without"]),
-                   "PII task warns about identifying details")
-        if kind == "scope" and p["services"]:
-            chk.ok(any(w in a.lower() for w in ["not in", "don't have", "do not have", "not list",
-                                                "not part", "isn't", "not one of"]),
-                   "out-of-scope question flagged against the directory")
+    # ---- Step 1: adaptive Red Line Test ----
+    p_hist = [{"role": "user", "content": "Begin Step 1 using my Entry record. Ask exactly one Red Line Test question."}]
+    redline_record = None
+    for i in range(7):
+        a = (call({"mode": "redline", "messages": p_hist, "context": ctx, "org": org}).get("content") or "")
+        chk.ok(bool(a), "red-line turn %d returned content" % (i + 1))
+        chk.ok(not leaks_reasoning(a), "red-line turn %d has no leaked reasoning tokens" % (i + 1))
+        if "outcome:" in a.lower():
+            redline_record = a
+            break
+        print("  RED LINE Q%d: %s" % (i + 1, short(a, 300 if verbose else 160)))
+        chk.ok(a.count("?") <= 2, "red-line turn %d asks one question, not a batch" % (i + 1))
+        ans = p["redlines"][i] if i < len(p["redlines"]) else "The responsible owner has not decided that yet."
+        p_hist += [{"role": "assistant", "content": a}, {"role": "user", "content": ans}]
+        ctx += "\n— Step 1 response: " + ans
+    chk.ok(redline_record is not None, "Red Line Test reached a decision record")
+    if redline_record:
+        print("  RED LINE RECORD: " + short(redline_record, 600 if verbose else 240))
+        low = redline_record.lower()
+        chk.ok(all(w in low for w in ["data boundary", "human authority", "unknown"]),
+               "Red Line record carries boundaries, authority, and unknowns")
+        chk.ok(any(route in low for route in ["outcome: yes", "outcome: maybe", "outcome: no"]),
+               "Red Line record names one of the three routes")
         if "fortune" not in p["org"].lower():
-            chk.ok("fortune" not in a.lower(), "no Fortune leakage (%s)" % kind)
+            chk.ok("fortune" not in low, "no Fortune leakage in the Red Line record")
 
 
 def main():

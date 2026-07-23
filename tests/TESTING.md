@@ -18,8 +18,6 @@ python3 tests/simulate.py --verbose    # fuller model replies
 
 Exit code is `0` when every check passes, `1` otherwise — so it drops into CI or a pre-demo check unchanged.
 
-The harness sends the server's access code on every call (`X-Access-Code`), defaulting to `AI4Wut`. If you start the server with a custom `ACCESS_CODE`, run the harness with the same value: `ACCESS_CODE=… python3 tests/simulate.py`.
-
 There is also a key-free unit test for the reasoning-token strip — no server or key needed:
 
 ```bash
